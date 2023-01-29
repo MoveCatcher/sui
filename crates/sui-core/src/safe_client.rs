@@ -228,7 +228,7 @@ impl<C> SafeClient<C> {
                         .verify(&committee)?,
                 ))
             }
-            TransactionStatus::Executed(cert_opt, effects) => {
+            TransactionStatus::Executed(cert_opt, effects, events) => {
                 let signed_effects = self.check_signed_effects(digest, effects, None)?;
                 match cert_opt {
                     Some(cert) => {
@@ -240,11 +240,13 @@ impl<C> SafeClient<C> {
                             )
                             .verify(&committee)?,
                             signed_effects,
+                            events,
                         ))
                     }
                     None => Ok(VerifiedTransactionInfoResponse::ExecutedWithoutCert(
                         transaction,
                         signed_effects,
+                        events,
                     )),
                 }
             }
@@ -308,6 +310,7 @@ where
     ) -> SuiResult<VerifiedHandleCertificateResponse> {
         Ok(VerifiedHandleCertificateResponse {
             signed_effects: self.check_signed_effects(digest, response.signed_effects, None)?,
+            events: response.events,
         })
     }
 

@@ -19,7 +19,7 @@ use sui_json_rpc_types::{
     Checkpoint, CheckpointId, DynamicFieldPage, GetObjectDataResponse, GetPastObjectDataResponse,
     GetRawObjectDataResponse, MoveFunctionArgType, ObjectValueKind, Page,
     SuiMoveNormalizedFunction, SuiMoveNormalizedModule, SuiMoveNormalizedStruct, SuiObjectInfo,
-    SuiTransactionEffects, SuiTransactionResponse, TransactionsPage,
+    SuiTransactionEvents, SuiTransactionResponse, TransactionsPage,
 };
 use sui_open_rpc::Module;
 use sui_types::base_types::SequenceNumber;
@@ -169,9 +169,21 @@ impl ReadApiServer for ReadApi {
             .map(|c| c.timestamp_ms);
         }
 
+        let events = if let Some(digest) = effects.events_summary.digest {
+            let events = self
+                .state
+                .get_transaction_events(digest)
+                .await
+                .map_err(Error::from)?;
+            SuiTransactionEvents::try_from(events, self.state.module_cache.as_ref())?
+        } else {
+            SuiTransactionEvents::default()
+        };
+
         Ok(SuiTransactionResponse {
             transaction: transaction.into_message().try_into()?,
-            effects: SuiTransactionEffects::try_from(effects, self.state.module_cache.as_ref())?,
+            effects: effects.into(),
+            events,
             timestamp_ms: checkpoint_timestamp,
             confirmed_local_execution: None,
             checkpoint: checkpoint_seq_opt,

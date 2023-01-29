@@ -3,10 +3,14 @@
 
 use crate::base_types::{SuiAddress, TransactionDigest, VersionNumber};
 use crate::committee::{Committee, EpochId};
-use crate::digests::{CheckpointContentsDigest, CheckpointDigest, TransactionEffectsDigest};
+use crate::digests::{
+    CheckpointContentsDigest, CheckpointDigest, TransactionEffectsDigest, TransactionEventsDigest,
+};
 use crate::message_envelope::Message;
 use crate::messages::InputObjectKind::{ImmOrOwnedMoveObject, MovePackage, SharedMoveObject};
-use crate::messages::{SenderSignedData, TransactionEffects, VerifiedTransaction};
+use crate::messages::{
+    SenderSignedData, TransactionEffects, TransactionEvents, VerifiedTransaction,
+};
 use crate::messages_checkpoint::{
     CheckpointContents, CheckpointSequenceNumber, VerifiedCheckpoint,
 };
@@ -215,6 +219,11 @@ pub trait ReadStore {
         &self,
         digest: &TransactionEffectsDigest,
     ) -> Result<Option<TransactionEffects>, Self::Error>;
+
+    fn get_transaction_events(
+        &self,
+        digest: &TransactionEventsDigest,
+    ) -> Result<Option<TransactionEvents>, Self::Error>;
 }
 
 impl<T: ReadStore> ReadStore for &T {
@@ -265,6 +274,13 @@ impl<T: ReadStore> ReadStore for &T {
         digest: &TransactionEffectsDigest,
     ) -> Result<Option<TransactionEffects>, Self::Error> {
         ReadStore::get_transaction_effects(*self, digest)
+    }
+
+    fn get_transaction_events(
+        &self,
+        digest: &TransactionEventsDigest,
+    ) -> Result<Option<TransactionEvents>, Self::Error> {
+        ReadStore::get_transaction_events(*self, digest)
     }
 }
 
@@ -323,6 +339,7 @@ pub struct InMemoryStore {
     checkpoint_contents: HashMap<CheckpointContentsDigest, CheckpointContents>,
     transactions: HashMap<TransactionDigest, VerifiedTransaction>,
     effects: HashMap<TransactionEffectsDigest, TransactionEffects>,
+    events: HashMap<TransactionEventsDigest, TransactionEvents>,
 
     epoch_to_committee: Vec<Committee>,
 }
@@ -461,6 +478,13 @@ impl InMemoryStore {
         self.effects.get(digest)
     }
 
+    pub fn get_transaction_events(
+        &self,
+        digest: &TransactionEventsDigest,
+    ) -> Option<&TransactionEvents> {
+        self.events.get(digest)
+    }
+
     pub fn insert_transaction_and_effects(
         &mut self,
         transaction: VerifiedTransaction,
@@ -551,6 +575,16 @@ impl ReadStore for SharedInMemoryStore {
     ) -> Result<Option<TransactionEffects>, Self::Error> {
         self.inner()
             .get_transaction_effects(digest)
+            .cloned()
+            .pipe(Ok)
+    }
+
+    fn get_transaction_events(
+        &self,
+        digest: &TransactionEventsDigest,
+    ) -> Result<Option<TransactionEvents>, Self::Error> {
+        self.inner()
+            .get_transaction_events(digest)
             .cloned()
             .pipe(Ok)
     }

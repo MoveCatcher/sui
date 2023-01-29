@@ -16,6 +16,7 @@ use tracing::trace;
 use crate::coin::Coin;
 use crate::committee::EpochId;
 use crate::event::BalanceChangeType;
+use crate::messages::TransactionEvents;
 use crate::storage::SingleTxContext;
 use crate::sui_system_state::SuiSystemState;
 use crate::SUI_SYSTEM_STATE_OBJECT_ID;
@@ -43,6 +44,7 @@ pub struct InnerTemporaryStore {
     pub mutable_inputs: Vec<ObjectRef>,
     pub written: BTreeMap<ObjectID, (ObjectRef, Object, WriteKind)>,
     pub deleted: BTreeMap<ObjectID, (SequenceNumber, DeleteKind)>,
+    pub events: TransactionEvents,
 }
 
 impl InnerTemporaryStore {
@@ -149,7 +151,7 @@ impl<S> TemporaryStore<S> {
     }
 
     /// Break up the structure and return its internal stores (objects, active_inputs, written, deleted)
-    pub fn into_inner(self) -> (InnerTemporaryStore, Vec<Event>) {
+    pub fn into_inner(self) -> InnerTemporaryStore {
         #[cfg(debug_assertions)]
         {
             self.check_invariants();
@@ -252,13 +254,13 @@ impl<S> TemporaryStore<S> {
         // Combine object events with move events.
         events.extend(self.events);
 
-        let store = InnerTemporaryStore {
+        InnerTemporaryStore {
             objects: self.input_objects,
             mutable_inputs: self.mutable_input_refs,
             written,
             deleted,
-        };
-        (store, events)
+            events: TransactionEvents { data: events },
+        }
     }
 
     fn create_written_events(
@@ -533,7 +535,7 @@ impl<S> TemporaryStore<S> {
             modified_at_versions.push((*id, *version));
         });
 
-        let (inner, events) = self.into_inner();
+        let inner = self.into_inner();
 
         // In the case of special transactions that don't require a gas object,
         // we don't really care about the effects to gas, just use the input for it.
@@ -588,7 +590,7 @@ impl<S> TemporaryStore<S> {
             unwrapped_then_deleted,
             wrapped,
             gas_object: updated_gas_object_info,
-            events,
+            events_summary: inner.events.summary(),
             dependencies: transaction_dependencies,
         };
         (inner, effects)
