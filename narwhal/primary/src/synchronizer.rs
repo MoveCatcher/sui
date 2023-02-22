@@ -23,8 +23,8 @@ use storage::{CertificateStore, PayloadToken};
 use store::Store;
 use tokio::{
     sync::{broadcast, oneshot, watch},
-    task::JoinSet,
-    time::timeout,
+    task::{JoinHandle, JoinSet},
+    time::sleep,
 };
 use tracing::{debug, error, trace, warn};
 use types::{
@@ -32,7 +32,8 @@ use types::{
     error::{new_accept_notification, AcceptNotification, DagError, DagResult},
     metered_channel::Sender,
     BatchDigest, Certificate, CertificateDigest, Header, PrimaryToPrimaryClient,
-    PrimaryToWorkerClient, Round, SendCertificateRequest, WorkerSynchronizeMessage,
+    PrimaryToWorkerClient, Round, SendCertificateRequest, SendCertificateResponse,
+    WorkerSynchronizeMessage,
 };
 
 use crate::{aggregators::CertificatesAggregator, metrics::PrimaryMetrics};
@@ -579,82 +580,79 @@ impl Synchronizer {
 
     /// Pushes new certificates received from the rx_own_certificate_broadcast channel
     /// to the target peer continuously. Only exits when the primary is shutting down.
-    // TODO: allow sending multiple (<=10) outgoing requests concurrently.
+    // TODO: move this to proposer.
     async fn push_certificates(
         network: Network,
         name: PublicKey,
         network_key: NetworkPublicKey,
         mut rx_own_certificate_broadcast: broadcast::Receiver<Certificate>,
     ) {
-        const PUSH_TIMEOUT: Duration = Duration::from_secs(5);
-        const MIN_FAILURE_BACKOFF: Duration = Duration::from_millis(100);
-        const MAX_FAILURE_BACKOFF: Duration = Duration::from_secs(10);
+        const PUSH_TIMEOUT: Duration = Duration::from_secs(10);
+        const MAX_CONCURRENT_PUSHES: usize = 100;
         let peer_id = anemo::PeerId(network_key.0.to_bytes());
         let peer = network.waiting_peer(peer_id);
-        let mut client = PrimaryToPrimaryClient::new(peer);
-        let mut certificates = VecDeque::new();
-        let mut failure_backoff = MIN_FAILURE_BACKOFF;
+        let client = PrimaryToPrimaryClient::new(peer);
+        // Newer certificates goes into the back, and finished requests are popped from the front.
+        let mut requests = VecDeque::<(
+            Certificate,
+            JoinHandle<Result<anemo::Response<SendCertificateResponse>, anemo::rpc::Status>>,
+        )>::new();
+        // Back off and retry only happen when there is no new certificate that needs to be
+        // broadcasted. Otherwise no retry happens.
+        const BACKOFF_INTERVAL: Duration = Duration::from_millis(100);
+        const MAX_BACKOFF_MULTIPLIER: u32 = 100;
+        let mut backoff_multiplier: u32 = 0;
         loop {
-            let wait_timeout = if certificates.is_empty() {
-                MAX_FAILURE_BACKOFF
-            } else {
-                failure_backoff
-            };
-            match timeout(wait_timeout, rx_own_certificate_broadcast.recv()).await {
-                Ok(Ok(cert)) => certificates.push_back(cert),
-                Ok(Err(broadcast::error::RecvError::Closed)) => {
-                    trace!("Certificate sender {name} shutting down!");
-                    return;
+            tokio::select! {
+                result = rx_own_certificate_broadcast.recv() => {
+                    let cert = match result {
+                        Ok(cert) => cert,
+                        Err(broadcast::error::RecvError::Closed) => {
+                            trace!("Certificate sender {name} is shutting down!");
+                            for (_, req) in requests {
+                                req.abort();
+                            }
+                            return;
+                        }
+                        Err(broadcast::error::RecvError::Lagged(e)) => {
+                            warn!("Certificate broadcaster {name} lagging! {e}");
+                            // Re-run the loop to receive again.
+                            continue;
+                        }
+                    };
+                    // Keep latest MAX_CONCURRENT_PUSHES, after starting the new request.
+                    while requests.len() >= MAX_CONCURRENT_PUSHES {
+                        let (_, req) = requests.pop_front().unwrap();
+                        req.abort();
+                    }
+                    let request = Request::new(SendCertificateRequest { certificate: cert.clone() }).with_timeout(PUSH_TIMEOUT);
+                    let mut client = client.clone();
+                    requests.push_back((cert, spawn_monitored_task!(client.send_certificate(request))));
                 }
-                Ok(Err(broadcast::error::RecvError::Lagged(e))) => {
-                    warn!("Certificate broadcaster {name} lagging! {e}");
-                    // Re-run the loop to receive again.
-                    continue;
-                }
-                Err(_) => {
-                    if certificates.is_empty() {
-                        // MAX_FAILURE_BACKOFF has elapsed without a certificate created.
-                        // This should rarely happen.
-                        continue;
+                resp = &mut requests.front_mut().unwrap().1, if !requests.is_empty() => {
+                    let (cert, _) = requests.pop_front().unwrap();
+                    let resp = resp.expect("Sending request panicked!");
+                    backoff_multiplier = match resp {
+                        Ok(_) => {
+                            0
+                        },
+                        Err(_) => {
+                            if requests.is_empty() {
+                                let request = Request::new(SendCertificateRequest { certificate: cert.clone() }).with_timeout(PUSH_TIMEOUT);
+                                let mut client = client.clone();
+                                requests.push_back((cert, spawn_monitored_task!(client.send_certificate(request))));
+                                min(backoff_multiplier * 2 + 1, MAX_BACKOFF_MULTIPLIER)
+                            } else {
+                                // TODO: add backoff and retries for transient & retriable errors.
+                                0
+                            }
+                        },
+                    };
+                    if backoff_multiplier > 0 {
+                        sleep(BACKOFF_INTERVAL * backoff_multiplier).await;
                     }
                 }
             };
-            // Get more certificates if available in the broadcast channel.
-            'recv: loop {
-                match rx_own_certificate_broadcast.try_recv() {
-                    Ok(cert) => {
-                        certificates.push_back(cert);
-                    }
-                    Err(broadcast::error::TryRecvError::Closed) => {
-                        trace!("Certificate sender {name} shutting down!");
-                        return;
-                    }
-                    Err(broadcast::error::TryRecvError::Lagged(e)) => {
-                        warn!("Certificate sender {name} lagging! {e}");
-                    }
-                    Err(broadcast::error::TryRecvError::Empty) => {
-                        break 'recv;
-                    }
-                };
-            }
-            // TODO: support sending multiple certificates concurrently.
-            // Only send the latest certificate.
-            while certificates.len() > 1 {
-                certificates.pop_front();
-            }
-            let cert = certificates.front().unwrap().clone();
-            let request = Request::new(SendCertificateRequest { certificate: cert })
-                .with_timeout(PUSH_TIMEOUT);
-            match client.send_certificate(request).await {
-                Ok(_) => {
-                    certificates.pop_front();
-                    failure_backoff = MIN_FAILURE_BACKOFF;
-                }
-                Err(status) => {
-                    debug!("Failed to send certificate to {name}! {status:?}");
-                    failure_backoff = min(failure_backoff * 2, MAX_FAILURE_BACKOFF);
-                }
-            }
         }
     }
 
