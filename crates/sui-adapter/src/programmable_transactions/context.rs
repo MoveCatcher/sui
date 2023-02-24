@@ -15,7 +15,7 @@ use sui_types::{
     base_types::{ObjectID, SuiAddress, TxContext},
     error::{ExecutionError, ExecutionErrorKind},
     messages::{Argument, CallArg, EntryArgumentErrorKind, ObjectArg},
-    object::{Object, Owner},
+    object::{Object, Owner, OBJECT_START_VERSION},
     storage::Storage,
 };
 
@@ -328,6 +328,7 @@ where
         // wrap the modules in an object, write it to the store
         let package_object = Object::new_package(
             modules,
+            OBJECT_START_VERSION,
             self.tx_context.digest(),
             self.protocol_config.max_move_package_size(),
         )?;

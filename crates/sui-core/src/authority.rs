@@ -2675,10 +2675,11 @@ impl AuthorityState {
             .try_as_package()
             .expect("Framework not package");
 
-        let new_object = match Object::new_package(
+        let mut new_object = match Object::new_package(
             modules,
-            // TODO: Also borrow cur object version -- requires packages to store their versions.
-
+            // Start at the same version as the current package, and increment if compatibility is
+            // successful
+            cur_object.version(),
             // We don't know what the digest is that will set the write the new system package until
             // the change epoch transaction runs, so borrow the current object's for now, to
             // simplify comparing digests below.
@@ -2693,9 +2694,7 @@ impl AuthorityState {
             }
         };
 
-        let new_ref = new_object.compute_object_reference();
-
-        if cur_ref == new_ref {
+        if cur_ref == new_object.compute_object_reference() {
             return Some(cur_ref);
         }
 
@@ -2710,7 +2709,7 @@ impl AuthorityState {
 
         let new_pkg = new_object
             .data
-            .try_as_package()
+            .try_as_package_mut()
             .expect("Created as package");
 
         let cur_normalized = cur_pkg.normalize().expect("Normalize existing package");
@@ -2727,7 +2726,8 @@ impl AuthorityState {
             }
         }
 
-        Some(new_ref)
+        new_pkg.increment_version();
+        Some(new_object.compute_object_reference())
     }
 
     fn choose_next_system_packages(
