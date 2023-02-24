@@ -222,6 +222,15 @@ export const TransactionEffects = object({
 });
 export type TransactionEffects = Infer<typeof TransactionEffects>;
 
+export const TransactionEvents = array(SuiEvent);
+export type TransactionEvents = Infer<typeof TransactionEvents>;
+
+export const DryRunTransactionResponse = object({
+  effects: TransactionEffects,
+  events: TransactionEvents,
+});
+export type DryRunTransactionResponse = Infer<typeof DryRunTransactionResponse>;
+
 const ReturnValueType = tuple([array(number()), string()]);
 const MutableReferenceOutputType = tuple([number(), array(number()), string()]);
 const ExecutionResultType = object({
@@ -237,6 +246,7 @@ const DevInspectResultsType = union([
 
 export const DevInspectResults = object({
   effects: TransactionEffects,
+  events: TransactionEvents,
   results: DevInspectResultsType,
 });
 export type DevInspectResults = Infer<typeof DevInspectResults>;
@@ -352,7 +362,7 @@ export const SuiTransactionResponse = object({
   // TODO: Remove after devnet 0.28.0
   certificate: optional(CertifiedTransaction),
   effects: TransactionEffects,
-  events: optional(array(SuiEvent)),
+  events: TransactionEvents,
   // TODO: Remove after devnet 0.28.0
   timestamp_ms: optional(union([number(), literal(null)])),
   // TODO: Remove optional after devnet 0.28.0

@@ -3,7 +3,7 @@
 
 import {
     fromB64,
-    getCertifiedTransaction,
+    getCertifiedTransaction, getEvents,
     getTransactionEffects,
     LocalTxnDataSerializer,
     type SignedTransaction,
@@ -190,6 +190,7 @@ export const respondToTransactionRequest = createAsyncThunk<
                     txResult = {
                         certificate: getCertifiedTransaction(response)!,
                         effects: getTransactionEffects(response)!,
+                        events: getEvents(response)!,
                         timestamp_ms: null,
                         parsed_data: null,
                     };

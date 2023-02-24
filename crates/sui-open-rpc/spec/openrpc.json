@@ -222,10 +222,23 @@
         }
       ],
       "result": {
-        "name": "SuiTransactionEffects",
+        "name": "(SuiTransactionEffects,SuiTransactionEvents)",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/TransactionEffects"
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/components/schemas/TransactionEffects"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Event"
+              }
+            }
+          ],
+          "maxItems": 2,
+          "minItems": 2
         }
       }
     },
