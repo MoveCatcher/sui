@@ -210,14 +210,14 @@ pub struct SuiSystemState {
     // TODO: Use getters instead of all pub.
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, JsonSchema)]
-pub struct StakeSubsidy {
-    pub epoch_counter: u64,
-    pub balance: Balance,
-    pub current_epoch_amount: u64,
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SuiSystemStateWrapper {
+    pub info: UID,
+    pub version: u64,
+    pub system_state: SuiSystemState,
 }
 
-impl SuiSystemState {
+impl SuiSystemStateWrapper {
     pub fn type_() -> StructTag {
         StructTag {
             address: SUI_FRAMEWORK_ADDRESS,
@@ -226,7 +226,16 @@ impl SuiSystemState {
             type_params: vec![],
         }
     }
+}
 
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, JsonSchema)]
+pub struct StakeSubsidy {
+    pub epoch_counter: u64,
+    pub balance: Balance,
+    pub current_epoch_amount: u64,
+}
+
+impl SuiSystemState {
     pub fn get_current_epoch_committee(&self) -> CommitteeWithNetAddresses {
         let mut voting_rights = BTreeMap::new();
         let mut net_addresses = BTreeMap::new();
@@ -363,7 +372,7 @@ where
         .data
         .try_as_move()
         .ok_or(SuiError::SuiSystemStateNotFound)?;
-    let result = bcs::from_bytes::<SuiSystemState>(move_object.contents())
+    let result = bcs::from_bytes::<SuiSystemStateWrapper>(move_object.contents())
         .expect("Sui System State object deserialization cannot fail");
-    Ok(result)
+    Ok(result.system_state)
 }
