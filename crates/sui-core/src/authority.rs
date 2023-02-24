@@ -2645,16 +2645,37 @@ impl AuthorityState {
         refs
     }
 
-    // TODO: Docs
+    /// Check whether the framework defined by `modules` is compatible with the framework that is
+    /// already on-chain at `id`.  Returns `None` if the current package at `id` cannot be loaded.
+    /// Panics if it can be loaded but is not a package.  Returns the digest of the current
+    /// framework if it is equivalent to the new framework, or if the new framework is incompatible,
+    /// otherwise returns a digest derived from the new version and contents of the framework.
     async fn compare_system_package(
         &self,
         id: ObjectID,
         modules: Vec<CompiledModule>,
     ) -> Option<ObjectRef> {
-        // TODO: Replace .ok()? with tracing
+        let cur_object = match self.get_object(&id).await {
+            Ok(Some(cur_object)) => cur_object,
 
-        let cur_object = self.get_object(&id).await.ok()??;
-        let new_object = Object::new_package(
+            Ok(None) => {
+                error!("No framework package at {id}");
+                return None
+            }
+
+            Err(e) => {
+                error!("Error loading framework object at {id}: {e:?}");
+                return None
+            }
+        };
+
+        let cur_ref = cur_object.compute_object_reference();
+        let cur_pkg = cur_object
+            .data
+            .try_as_package()
+            .expect("Framework not package");
+
+        let new_object = match Object::new_package(
             modules,
             // TODO: Also borrow cur object version -- requires packages to store their versions.
 
@@ -2664,10 +2685,14 @@ impl AuthorityState {
             cur_object.previous_transaction,
             // TODO: Should we set a max size for the framework?
             u64::MAX,
-        )
-        .ok()?;
+        ) {
+            Ok(object) => object,
+            Err(e) => {
+                error!("Failed to create new framework package for {id}: {e:?}");
+                return Some(cur_ref);
+            }
+        };
 
-        let cur_ref = cur_object.compute_object_reference();
         let new_ref = new_object.compute_object_reference();
 
         if cur_ref == new_ref {
@@ -2683,10 +2708,6 @@ impl AuthorityState {
             check_friend_linking,
         );
 
-        let cur_pkg = cur_object
-            .data
-            .try_as_package()
-            .expect("Framework not package");
         let new_pkg = new_object
             .data
             .try_as_package()
@@ -2700,7 +2721,8 @@ impl AuthorityState {
                 return Some(cur_ref);
             };
 
-            if let Err(_) = compatibility.check(&cur_module, &new_module) {
+            if let Err(e) = compatibility.check(&cur_module, &new_module) {
+                error!("Compatibility check, not proposing new framework for {id}: {e:?}");
                 return Some(cur_ref);
             }
         }
