@@ -2646,10 +2646,16 @@ impl AuthorityState {
     }
 
     /// Check whether the framework defined by `modules` is compatible with the framework that is
-    /// already on-chain at `id`.  Returns `None` if the current package at `id` cannot be loaded.
-    /// Panics if it can be loaded but is not a package.  Returns the digest of the current
-    /// framework if it is equivalent to the new framework, or if the new framework is incompatible,
-    /// otherwise returns a digest derived from the new version and contents of the framework.
+    /// already on-chain at `id`.
+    ///
+    /// - Returns `None` if the current package at `id` cannot be loaded, or the compatibility check
+    ///   fails (This is grounds not to upgrade).
+    /// - Panics if the object at `id` can be loaded but is not a package -- this is an invariant
+    ///   violation.
+    /// - Returns the digest of the current framework (and version) if it is equivalent to the new
+    ///   framework (indicates support for a protocol upgrade without a framework upgrade).
+    /// - Returns the digest of the new framework (and version) if it is compatible (indicates
+    ///   support for a protocol upgrade with a framework upgrade).
     async fn compare_system_package(
         &self,
         id: ObjectID,
@@ -2690,7 +2696,7 @@ impl AuthorityState {
             Ok(object) => object,
             Err(e) => {
                 error!("Failed to create new framework package for {id}: {e:?}");
-                return Some(cur_ref);
+                return None;
             }
         };
 
@@ -2717,12 +2723,12 @@ impl AuthorityState {
 
         for (name, cur_module) in cur_normalized {
             let Some(new_module) = new_normalized.remove(&name) else {
-                return Some(cur_ref);
+                return None;
             };
 
             if let Err(e) = compatibility.check(&cur_module, &new_module) {
-                error!("Compatibility check, not proposing new framework for {id}: {e:?}");
-                return Some(cur_ref);
+                error!("Compatibility check failed, for new version of {id}: {e:?}");
+                return None;
             }
         }
 
