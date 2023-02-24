@@ -2627,22 +2627,21 @@ impl AuthorityState {
     }
 
     pub async fn get_available_system_packages(&self) -> Vec<ObjectRef> {
-        let mut refs = vec![];
+        let Some(move_stdlib) = self.compare_system_package(
+            MOVE_STDLIB_OBJECT_ID,
+            sui_framework::get_move_stdlib(),
+        ) .await else {
+            return vec![];
+        };
 
-        refs.extend(
-            self.compare_system_package(MOVE_STDLIB_OBJECT_ID, sui_framework::get_move_stdlib())
-                .await,
-        );
+        let Some(sui_framework) = self.compare_system_package(
+            SUI_FRAMEWORK_OBJECT_ID,
+            sui_framework::get_sui_framework(),
+        ).await else {
+            return vec![];
+        };
 
-        refs.extend(
-            self.compare_system_package(
-                SUI_FRAMEWORK_OBJECT_ID,
-                sui_framework::get_sui_framework(),
-            )
-            .await,
-        );
-
-        refs
+        vec![move_stdlib, sui_framework]
     }
 
     /// Check whether the framework defined by `modules` is compatible with the framework that is
