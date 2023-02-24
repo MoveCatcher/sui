@@ -9,7 +9,7 @@
 module sui::sui_system_tests {
     use sui::test_scenario::{Self, Scenario};
     use sui::governance_test_utils::{advance_epoch, set_up_sui_system_state};
-    use sui::sui_system::{Self, SuiSystemState};
+    use sui::sui_system::{Self, SuiSystemStateWrapper};
     use sui::vec_set;
 
     #[test]
@@ -76,7 +76,7 @@ module sui::sui_system_tests {
     fun report_helper(reporter: address, reported: address, is_undo: bool, scenario: &mut Scenario) {
         test_scenario::next_tx(scenario, reporter);
 
-        let system_state = test_scenario::take_shared<SuiSystemState>(scenario);
+        let system_state = test_scenario::take_shared<SuiSystemStateWrapper>(scenario);
         let ctx = test_scenario::ctx(scenario);
         if (is_undo) {
             sui_system::undo_report_validator(&mut system_state, reported, ctx);
@@ -88,7 +88,7 @@ module sui::sui_system_tests {
 
     fun get_reporters_of(addr: address, scenario: &mut Scenario): vector<address> {
         test_scenario::next_tx(scenario, addr);
-        let system_state = test_scenario::take_shared<SuiSystemState>(scenario);
+        let system_state = test_scenario::take_shared<SuiSystemStateWrapper>(scenario);
         let res = vec_set::into_keys(sui_system::get_reporters_of(&system_state, addr));
         test_scenario::return_shared(system_state);
         res
