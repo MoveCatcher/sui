@@ -2678,8 +2678,9 @@ impl AuthorityState {
         let check_struct_layout = true;
         let check_friend_linking = false;
         let compatibility = Compatibility::new(
-            /* check_struct_and_pub_function_linking */ true,
-            /* check_struct_layout */ true, /* check_friend_linking */ false,
+            check_struct_and_pub_function_linking,
+            check_struct_layout,
+            check_friend_linking,
         );
 
         let cur_pkg = cur_object
