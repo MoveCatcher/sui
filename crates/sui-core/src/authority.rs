@@ -9,6 +9,8 @@ use fastcrypto::encoding::Base58;
 use fastcrypto::encoding::Encoding;
 use fastcrypto::traits::KeyPair;
 use itertools::Itertools;
+use move_binary_format::compatibility::Compatibility;
+use move_binary_format::CompiledModule;
 use move_bytecode_utils::module_cache::SyncModuleCache;
 use move_core_types::account_address::AccountAddress;
 use move_core_types::identifier::Identifier;
@@ -32,6 +34,8 @@ use std::{collections::HashMap, pin::Pin};
 use sui_config::node::AuthorityStorePruningConfig;
 use sui_types::message_envelope::Message;
 use sui_types::parse_sui_struct_tag;
+use sui_types::MOVE_STDLIB_OBJECT_ID;
+use sui_types::SUI_FRAMEWORK_OBJECT_ID;
 use tap::TapFallible;
 use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::oneshot;
@@ -2622,18 +2626,85 @@ impl AuthorityState {
         }
     }
 
-    pub fn get_available_system_packages(&self) -> Vec<ObjectRef> {
-        // TODO: determine the current object ref of each built-in system package.
-        // this starts with calling:
-        //
-        // sui_framework::get_move_stdlib()
-        // sui_framework::get_sui_framework()
-        //
-        // but then the resulting CompiledModules have to be turned into fully fledged objects.
-        // The next version of those objects must be determined (presumably by looking up the
-        // current highest version), then an ObjectRef can be formed which commits to the object
-        // contents and version.
-        todo!()
+    pub async fn get_available_system_packages(&self) -> Vec<ObjectRef> {
+        let mut refs = vec![];
+
+        refs.extend(
+            self.compare_system_package(MOVE_STDLIB_OBJECT_ID, sui_framework::get_move_stdlib())
+                .await,
+        );
+
+        refs.extend(
+            self.compare_system_package(
+                SUI_FRAMEWORK_OBJECT_ID,
+                sui_framework::get_sui_framework(),
+            )
+            .await,
+        );
+
+        refs
+    }
+
+    // TODO: Docs
+    async fn compare_system_package(
+        &self,
+        id: ObjectID,
+        modules: Vec<CompiledModule>,
+    ) -> Option<ObjectRef> {
+        // TODO: Replace .ok()? with tracing
+
+        let cur_object = self.get_object(&id).await.ok()??;
+        let new_object = Object::new_package(
+            modules,
+            // TODO: Also borrow cur object version -- requires packages to store their versions.
+
+            // We don't know what the digest is that will set the write the new system package until
+            // the change epoch transaction runs, so borrow the current object's for now, to
+            // simplify comparing digests below.
+            cur_object.previous_transaction,
+            // TODO: Should we set a max size for the framework?
+            u64::MAX,
+        )
+        .ok()?;
+
+        let cur_ref = cur_object.compute_object_reference();
+        let new_ref = new_object.compute_object_reference();
+
+        if cur_ref == new_ref {
+            return Some(cur_ref);
+        }
+
+        let check_struct_and_pub_function_linking = true;
+        let check_struct_layout = true;
+        let check_friend_linking = false;
+        let compatibility = Compatibility::new(
+            /* check_struct_and_pub_function_linking */ true,
+            /* check_struct_layout */ true, /* check_friend_linking */ false,
+        );
+
+        let cur_pkg = cur_object
+            .data
+            .try_as_package()
+            .expect("Framework not package");
+        let new_pkg = new_object
+            .data
+            .try_as_package()
+            .expect("Created as package");
+
+        let cur_normalized = cur_pkg.normalize().expect("Normalize existing package");
+        let mut new_normalized = new_pkg.normalize().ok()?;
+
+        for (name, cur_module) in cur_normalized {
+            let Some(new_module) = new_normalized.remove(&name) else {
+                return Some(cur_ref);
+            };
+
+            if let Err(_) = compatibility.check(&cur_module, &new_module) {
+                return Some(cur_ref);
+            }
+        }
+
+        Some(new_ref)
     }
 
     fn choose_next_system_packages(
