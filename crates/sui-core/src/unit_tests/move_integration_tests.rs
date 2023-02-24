@@ -20,6 +20,9 @@ use sui_types::{
     messages::ExecutionStatus,
 };
 
+use expect_test::expect;
+use std::fs::File;
+use std::io::Read;
 use std::{collections::HashSet, path::PathBuf};
 use std::{env, str::FromStr};
 
@@ -1916,6 +1919,32 @@ async fn test_object_no_id_error() {
     matches!(res.err(), Some(SuiError::ExecutionError(err_str)) if
                  err_str.contains("SuiMoveVerificationError")
                  && err_str.contains("First field of struct NotObject must be 'id'"));
+}
+
+#[tokio::test]
+#[cfg_attr(msim, ignore)]
+async fn test_generate_lock_file() {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("src/unit_tests/data/generate_move_lock_file/");
+
+    let lock_file =
+        tempfile::NamedTempFile::new().expect("Could not create temp file for Move.lock");
+    let lock_file_path = lock_file.path();
+    let mut lock_file = File::open(lock_file_path).expect("No Move.lock file");
+
+    let mut build_config = BuildConfig::new_for_testing();
+    build_config.config.lock_file = Some(lock_file_path.to_path_buf());
+    sui_framework::build_move_package(&path, build_config).expect("Move package did not build");
+
+    let mut lock_file_contents = String::new();
+    lock_file
+        .read_to_string(&mut lock_file_contents)
+        .expect("Error reading Move.lock file");
+
+    let expected = expect![""];
+    expected.assert_eq(lock_file_contents.as_str());
+    // panic!("tried to target file {:#?}", lock_file.path().as_os_str());
+    std::fs::remove_file(lock_file_path).unwrap();
 }
 
 pub async fn build_and_try_publish_test_package(
