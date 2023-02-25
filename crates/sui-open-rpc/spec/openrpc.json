@@ -222,23 +222,10 @@
         }
       ],
       "result": {
-        "name": "(SuiTransactionEffects,SuiTransactionEvents)",
+        "name": "DryRunTransactionResponse",
         "required": true,
         "schema": {
-          "type": "array",
-          "items": [
-            {
-              "$ref": "#/components/schemas/TransactionEffects"
-            },
-            {
-              "type": "array",
-              "items": {
-                "$ref": "#/components/schemas/Event"
-              }
-            }
-          ],
-          "maxItems": 2,
-          "minItems": 2
+          "$ref": "#/components/schemas/DryRunTransactionResponse"
         }
       }
     },
@@ -3414,6 +3401,24 @@
                 "$ref": "#/components/schemas/Result_of_Array_of_Tuple_of_uint_and_SuiExecutionResult_or_String"
               }
             ]
+          }
+        }
+      },
+      "DryRunTransactionResponse": {
+        "type": "object",
+        "required": [
+          "effects",
+          "events"
+        ],
+        "properties": {
+          "effects": {
+            "$ref": "#/components/schemas/TransactionEffects"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
           }
         }
       },
