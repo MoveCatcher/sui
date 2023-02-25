@@ -1,7 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {Coin as CoinAPI, getEvents, getTransactionEffects} from '@mysten/sui.js';
+import {
+    Coin as CoinAPI,
+    getEvents,
+    getTransactionEffects,
+} from '@mysten/sui.js';
 import * as Sentry from '@sentry/react';
 
 import type {

@@ -3,7 +3,8 @@
 
 import {
     fromB64,
-    getCertifiedTransaction, getEvents,
+    getCertifiedTransaction,
+    getEvents,
     getTransactionEffects,
     LocalTxnDataSerializer,
     type SignedTransaction,

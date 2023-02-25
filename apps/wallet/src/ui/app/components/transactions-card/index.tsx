@@ -12,17 +12,17 @@ import {
     getTransferObjectTransaction,
     SUI_TYPE_ARG,
 } from '@mysten/sui.js';
-import {useMemo} from 'react';
-import {Link} from 'react-router-dom';
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 
-import {TxnTypeLabel} from './TxnActionLabel';
-import {TxnIcon} from './TxnIcon';
-import {TxnImage} from './TxnImage';
-import {CoinBalance} from '_app/shared/coin-balance';
-import {DateCard} from '_app/shared/date-card';
-import {Text} from '_app/shared/text';
-import {checkStakingTxn, notEmpty} from '_helpers';
-import {useGetTransferAmount, useGetTxnRecipientAddress} from '_hooks';
+import { TxnTypeLabel } from './TxnActionLabel';
+import { TxnIcon } from './TxnIcon';
+import { TxnImage } from './TxnImage';
+import { CoinBalance } from '_app/shared/coin-balance';
+import { DateCard } from '_app/shared/date-card';
+import { Text } from '_app/shared/text';
+import { checkStakingTxn, notEmpty } from '_helpers';
+import { useGetTransferAmount, useGetTxnRecipientAddress } from '_hooks';
 
 import type {
     SuiAddress,

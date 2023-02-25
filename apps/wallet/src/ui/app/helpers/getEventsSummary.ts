@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type {TransactionEvents} from '@mysten/sui.js';
+import type { TransactionEvents } from '@mysten/sui.js';
 
 export type CoinsMetaProps = {
     amount: number;

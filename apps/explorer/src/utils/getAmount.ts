@@ -47,7 +47,7 @@ type FormattedBalance = {
 export function getTransfersAmount(
     txnData: SuiTransactionKind,
     txnEffect?: TransactionEffects,
-    events?: TransactionEvents,
+    events?: TransactionEvents
 ): FormattedBalance[] | null {
     const txKindName = getTransactionKindName(txnData);
     if (txKindName === 'TransferObject') {
@@ -68,8 +68,7 @@ export function getTransfersAmount(
                   {
                       address: txn.recipient,
                       amount: txn?.amount,
-                      coinType:
-                          events && getCoinType(events, txn.recipient),
+                      coinType: events && getCoinType(events, txn.recipient),
                   },
               ]
             : null;

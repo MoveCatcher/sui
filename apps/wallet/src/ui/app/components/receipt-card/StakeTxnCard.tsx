@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {SUI_TYPE_ARG} from '@mysten/sui.js';
+import { SUI_TYPE_ARG } from '@mysten/sui.js';
 import { useMemo } from 'react';
 
 import { calculateAPY } from '_app/staking/calculateAPY';
@@ -13,7 +13,11 @@ import { useGetObject } from '_hooks';
 import { Text } from '_src/ui/app/shared/text';
 import { IconTooltip } from '_src/ui/app/shared/tooltip';
 
-import type { TransactionEffects, MoveEvent , TransactionEvents} from '@mysten/sui.js';
+import type {
+    TransactionEffects,
+    MoveEvent,
+    TransactionEvents,
+} from '@mysten/sui.js';
 
 type StakeTxnCardProps = {
     txnEffects: TransactionEffects;
@@ -24,7 +28,7 @@ const REQUEST_DELEGATION_EVENT = '0x2::validator_set::DelegationRequestEvent';
 
 // TODO: moveEvents is will be changing
 // For Staked Transaction use moveEvent Field to get the validator address, delegation amount, epoch
-export function StakeTxnCard({txnEffects, events}: StakeTxnCardProps) {
+export function StakeTxnCard({ txnEffects, events }: StakeTxnCardProps) {
     const stakingData = useMemo(() => {
         if (!events) return null;
 
