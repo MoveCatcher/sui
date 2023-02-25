@@ -1,5 +1,13 @@
 # @mysten/sui.js
 
+## 0.30.0
+
+### Minor Changes
+
+- a211dc03a: Change object digest from Base64 encoded to Base58 encoded for rpc version >= 0.28.0
+- 64234baaf: added combined `getCheckpoint` endpoint for retrieving information about a checkpoint
+- a74df16ec: Minor change to the system transaction format
+
 ## 0.29.1
 
 ### Patch Changes
