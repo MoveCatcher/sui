@@ -1,13 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type {
-    SuiAddress,
-    SuiEvent,
-    SuiTransactionResponse,
-    TransactionEffects,
-    TransactionEvents,
-} from '@mysten/sui.js';
 import {
     getExecutionStatusError,
     getExecutionStatusType,
@@ -30,6 +23,14 @@ import {DateCard} from '_app/shared/date-card';
 import {Text} from '_app/shared/text';
 import {checkStakingTxn, notEmpty} from '_helpers';
 import {useGetTransferAmount, useGetTxnRecipientAddress} from '_hooks';
+
+import type {
+    SuiAddress,
+    SuiEvent,
+    SuiTransactionResponse,
+    TransactionEffects,
+    TransactionEvents,
+} from '@mysten/sui.js';
 
 export const getTxnEffectsEventID = (
     txEffects: TransactionEffects,
@@ -63,7 +64,7 @@ export function TransactionCard({
         return transferId
             ? transferId
             : getTxnEffectsEventID(txn.effects, txn.events, address)[0];
-    }, [address, transaction, txn.effects]);
+    }, [address, transaction, txn.effects, txn.events]);
 
     const transfer = useGetTransferAmount({
         txn,

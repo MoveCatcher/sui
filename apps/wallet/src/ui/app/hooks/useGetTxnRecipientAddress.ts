@@ -17,12 +17,12 @@ type Props = {
 };
 
 export function useGetTxnRecipientAddress({ txn, address }: Props) {
-    const { effects, events } = txn;
+    const { events } = txn;
 
     const eventsSummary = useMemo(() => {
         const { coins } = getEventsSummary(events, address);
         return coins;
-    }, [effects, address]);
+    }, [events, address]);
 
     const [transaction] = getTransactions(txn);
     const amountByRecipient = getAmount(transaction, txn.effects, events);

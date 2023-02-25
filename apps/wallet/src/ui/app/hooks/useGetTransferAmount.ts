@@ -29,7 +29,7 @@ export function useGetTransferAmount({
                 };
             }
         );
-    }, [txn, effects]);
+    }, [txn, effects, events]);
 
     const transferAmount = useMemo(() => {
         return suiTransfer?.length

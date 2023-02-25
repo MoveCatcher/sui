@@ -22,7 +22,8 @@ import {
   ObjectOwner,
   SuiAddress,
   SuiJsonValue,
-  TransactionDigest, TransactionEventDigest,
+  TransactionDigest,
+  TransactionEventDigest,
 } from './common';
 
 // TODO: support u64

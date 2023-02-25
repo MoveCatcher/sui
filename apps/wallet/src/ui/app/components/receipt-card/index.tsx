@@ -59,7 +59,7 @@ function ReceiptCard({ txn, activeAddress }: ReceiptCardProps) {
         return transferId
             ? transferId
             : getTxnEffectsEventID(effects,events, activeAddress)[0];
-    }, [activeAddress, transaction, effects]);
+    }, [transaction, effects, events, activeAddress]);
 
     const gasTotal = getTotalGasUsed(txn);
 

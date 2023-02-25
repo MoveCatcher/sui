@@ -55,7 +55,8 @@ import {
   CheckpointDigest,
   Checkpoint,
   CheckPointContentsDigest,
-  CommitteeInfo, DryRunTransactionResponse,
+  CommitteeInfo,
+  DryRunTransactionResponse,
 } from '../types';
 import { DynamicFieldName, DynamicFieldPage } from '../types/dynamic_fields';
 import {
