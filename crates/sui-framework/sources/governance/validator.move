@@ -51,6 +51,8 @@ module sui::validator {
         project_url: Url,
         /// The network address of the validator (could also contain extra info such as port, DNS and etc.).
         net_address: vector<u8>,
+        /// The address of the validator used for p2p activities such as state sync (could also contain extra info such as port, DNS and etc.).
+        p2p_address: vector<u8>,
         /// The address of the narwhal primary
         consensus_address: vector<u8>,
         /// The address of the narwhal worker
@@ -116,6 +118,7 @@ module sui::validator {
         image_url: vector<u8>,
         project_url: vector<u8>,
         net_address: vector<u8>,
+        p2p_address: vector<u8>,
         consensus_address: vector<u8>,
         worker_address: vector<u8>,
         stake: Balance<SUI>,
@@ -127,6 +130,7 @@ module sui::validator {
         assert!(
             // TODO: These constants are arbitrary, will adjust once we know more.
             vector::length(&net_address) <= 128
+                && vector::length(&p2p_address) <= 128
                 && vector::length(&name) <= 128
                 && vector::length(&description) <= 150
                 && vector::length(&pubkey_bytes) <= 128,
@@ -151,6 +155,7 @@ module sui::validator {
                 image_url: url::new_unsafe_from_bytes(image_url),
                 project_url: url::new_unsafe_from_bytes(project_url),
                 net_address,
+                p2p_address,
                 consensus_address,
                 worker_address,
                 next_epoch_stake: stake_amount,
@@ -354,6 +359,7 @@ module sui::validator {
          self.metadata.sui_address == other.metadata.sui_address
             || self.metadata.name == other.metadata.name
             || self.metadata.net_address == other.metadata.net_address
+            || self.metadata.p2p_address == other.metadata.p2p_address
             || self.metadata.pubkey_bytes == other.metadata.pubkey_bytes
     }
 
@@ -372,6 +378,7 @@ module sui::validator {
         image_url: vector<u8>,
         project_url: vector<u8>,
         net_address: vector<u8>,
+        p2p_address: vector<u8>,
         consensus_address: vector<u8>,
         worker_address: vector<u8>,
         stake: Balance<SUI>,
@@ -383,6 +390,7 @@ module sui::validator {
         assert!(
             // TODO: These constants are arbitrary, will adjust once we know more.
             vector::length(&net_address) <= 128
+                && vector::length(&p2p_address) <= 128
                 && vector::length(&name) <= 128
                 && vector::length(&description) <= 150
                 && vector::length(&pubkey_bytes) <= 128,
@@ -402,6 +410,7 @@ module sui::validator {
                 image_url: url::new_unsafe_from_bytes(image_url),
                 project_url: url::new_unsafe_from_bytes(project_url),
                 net_address,
+                p2p_address,
                 consensus_address,
                 worker_address,
                 next_epoch_stake: stake_amount,
